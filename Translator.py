@@ -5,8 +5,6 @@ from etherpad_lite import EtherpadLiteClient
 """
 To-Dos:
 *-Improve HTTP Request Speed (2s per set or Get currently except on work laptop)
-*-Only translate after \n (and only lines that have changed)
-*-Check Dict for parallel Movement -> no need to retranslate known data
 *-Web Implementation
 *-Check if Server Running
 -Have other PCs join the etherpad from a Local Network
@@ -221,6 +219,8 @@ def translatorloop(id_source):
             usagedict = call_deepL_usage()
             char_left = usagedict["character_limit"] - \
                 usagedict["character_count"]
+
+            time.sleep(5)
 
         else:
             time.sleep(1)
