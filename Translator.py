@@ -205,7 +205,7 @@ def translatorloop(id_source):
             for line in gertext:
                 # check if in line dic (either adds line translation and then append or append directly)
                 if line not in line_dic:
-                    line_dic[line] = call_deepL_decoy(line)
+                    line_dic[line] = call_deepL(line)
                     logging.info("translated line " + str(gertext.index(line)+1))
                 
                 engtext.append(line_dic[line])
