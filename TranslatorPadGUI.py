@@ -35,7 +35,7 @@ class GUI(QWidget):
         QTimer.startTimer(self, 700, timerType=Qt.CoarseTimer)
 
     def thread_count(self):
-        logging.info("Multithreading with maximum %d threads" %
+        logging.info("Multithreading with maximum %d thread" %
                      self.threadpool.maxThreadCount())
 
     def timerEvent(self, event: QTimerEvent) -> None:
@@ -166,7 +166,7 @@ class GUI(QWidget):
 
         # Main Window Properties
         self.setFixedSize(250, 480)
-        self.setWindowTitle("LTEP")
+        self.setWindowTitle("LTP")
         self.show()
 
 
