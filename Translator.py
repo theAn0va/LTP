@@ -2,12 +2,8 @@ import logging
 import requests
 import time
 from etherpad_lite import EtherpadLiteClient
-
-
 """
 To-Dos:
--GUI
-    *-Show List
 *-Improve HTTP Request Speed (2s per set or Get currently except on work laptop)
 *-Only translate after \n (and only lines that have changed)
 *-Check Dict for parallel Movement -> no need to retranslate known data
@@ -67,12 +63,12 @@ METHOD_DICT = {
     "sendClientsMessage": "1.1",
     "checkToken": "1.2",
     "listAllPads": "1.2.1",
-    "getStats": "1.2.14",
+    "getStats": "1.2.14"
 }
 
 # The Ether Key is in the etherpad root directory and the DeepL Key in your account Settings
-ETH_API_KEY = "0d29a63b7ec3be8bb39f05b6550ad8481f0aec137f56b49885cb6038d9d59674"
-DEEPL_API_KEY = "f35d6b57-fd5e-93b1-ccc5-5b822fc5a07b:fx"
+ETH_API_KEY = open("ETH_API_KEY.txt", "r").read()
+DEEPL_API_KEY = open("DEEPL_API_KEY.txt", "r").read()
 
 # Initialising the Pad Client c
 c = EtherpadLiteClient(base_params={"apikey": ETH_API_KEY})

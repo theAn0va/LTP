@@ -2,7 +2,6 @@ import logging
 from os import name
 import sys
 import webbrowser
-
 from PySide6 import QtWidgets
 import Translator
 from PySide6.QtWidgets import (
@@ -34,9 +33,10 @@ class GUI(QWidget):
         self.threadpool.setMaxThreadCount(1)
         self.init_ui()
         QTimer.startTimer(self, 700, timerType=Qt.CoarseTimer)
-        
+
     def thread_count(self):
-        logging.info("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
+        logging.info("Multithreading with maximum %d threads" %
+                     self.threadpool.maxThreadCount())
 
     def timerEvent(self, event: QTimerEvent) -> None:
         if Translator.active:
@@ -78,7 +78,8 @@ class GUI(QWidget):
         self.name = event
         Translator.stop_loop()
         if self.name:
-            self.sinkinput.setText("http://localhost:9001/p/" + self.name + "trans")
+            self.sinkinput.setText(
+                "http://localhost:9001/p/" + self.name + "trans")
         else:
             self.sinkinput.setText("")
 
