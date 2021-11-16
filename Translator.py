@@ -114,7 +114,8 @@ def call_deepL_usage():
     Returns used characters and character limit
     """
     # Manual HTTP request
-    x = requests.get(f"https://api-free.deepl.com/v2/usage?auth_key={DEEPL_API_KEY}")
+    x = requests.get(
+        f"https://api-free.deepl.com/v2/usage?auth_key={DEEPL_API_KEY}")
     return x.json()
 
 
@@ -133,7 +134,7 @@ def start_loop():
 
 def stop_loop():
     global active
-    
+
     if not active:
         # logging.info("Translator already stopped")
         pass
@@ -174,6 +175,8 @@ usagedict = call_deepL_usage()
 char_left = usagedict["character_limit"] - usagedict["character_count"]
 
 # Main Loop
+
+
 def translatorloop(id_source):
     global break_this
     break_this = False
@@ -185,7 +188,7 @@ def translatorloop(id_source):
     id_sink = id_source + "trans"
 
     # initialize Document Dictionary
-    doc_dic = {}
+    line_dic = {}
 
     # Main Loop
     while True:
@@ -193,49 +196,31 @@ def translatorloop(id_source):
 
         if active:
             logging.debug("translater running")
-            # ct = Currenttext aus Source Pad auslesen
-            ct = c.getText(padID=id_source)["text"]
+            # ct = Currenttext aus Source Pad auslesen, in liste schreiben und letzten eintrag (der der aktuell geschrieben wird) entfernen
+            engtext = []
+            sinktext = ""
+            gertext = c.getText(padID=id_source)["text"].splitlines()
+            del gertext[-1]
 
-            # Create Document Dictionary line per line if not already created or changed
-            for line_number, line in enumerate(ct.splitlines(), start=1):
+            for line in gertext:
+                # check if in line dic (either adds line translation and then append or append directly)
+                if line not in line_dic:
+                    line_dic[line] = call_deepL_decoy(line)
+                    logging.info("translated line " + str(gertext.index(line)+1))
+                
+                engtext.append(line_dic[line])
 
-                # Write new line if not in dic
-                if line_number not in doc_dic:
-                    doc_dic[line_number] = {"ger": line, "en": "", "ch_flag": True}
-                    continue
-
-                # Update line from German source pad if changed
-                elif line != doc_dic[line_number]["ger"]:
-                    doc_dic[line_number] = {"ger": line, "en": "", "ch_flag": True}
-
-            # Remove excess lines after deleting lines in Source Pad
-            for i in range(line_number + 1, len(doc_dic) + 1):
-                doc_dic.pop(i)
-
-            # Translate Dictionary line per line if not already translated or empty
-            for line_number, line in enumerate(ct.splitlines(), start=1):
-                if (
-                    doc_dic[line_number]["ch_flag"] == True
-                    and doc_dic[line_number]["ger"].replace("\t", "") != ""
-                ):
-                    doc_dic[line_number]["en"] = call_deepL(line)
-                    logging.debug(
-                        id_source + " Line " + str(line_number) + " translated"
-                    )
-                    doc_dic[line_number]["ch_flag"] = False
-
-            # Create Sinktext
-            ctsink = ""
-            for i in range(1, len(doc_dic) + 1):
-                ctsink += doc_dic[i]["en"] + "\n"
+            for line in engtext:
+                sinktext += line + "\n"
 
             # Sinktext in Sink Pad schreiben
-            c.setText(padID=id_sink, text=ctsink)
+            c.setText(padID=id_sink, text=sinktext)
 
             # Calculate Remaining Translatable Characters
             global char_left
             usagedict = call_deepL_usage()
-            char_left = usagedict["character_limit"] - usagedict["character_count"]
+            char_left = usagedict["character_limit"] - \
+                usagedict["character_count"]
 
         else:
             time.sleep(1)
