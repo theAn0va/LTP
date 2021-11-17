@@ -8,6 +8,7 @@ To-Dos:
 *-Web Implementation
 *-Check if Server Running
 -Have other PCs join the etherpad from a Local Network
+-detect last changed line
 
 """
 
@@ -198,7 +199,8 @@ def translatorloop(id_source):
             engtext = []
             sinktext = ""
             gertext = c.getText(padID=id_source)["text"].splitlines()
-            del gertext[-1]
+            k = -1 # position of last changed line
+            gertext[k] = ""
 
             for line in gertext:
                 # check if in line dic (either adds line translation and then append or append directly)
@@ -220,6 +222,7 @@ def translatorloop(id_source):
             char_left = usagedict["character_limit"] - \
                 usagedict["character_count"]
 
+            gerold = gertext
             time.sleep(5)
 
         else:
