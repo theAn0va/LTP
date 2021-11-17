@@ -188,6 +188,8 @@ def translatorloop(id_source):
 
     # initialize Document Dictionary
     line_dic = {}
+    gerold = []
+
 
     # Main Loop
     while True:
@@ -199,19 +201,32 @@ def translatorloop(id_source):
             engtext = []
             sinktext = ""
             gertext = c.getText(padID=id_source)["text"].splitlines()
-            k = -1 # position of last changed line
-            gertext[k] = ""
+
+            # detect active_line and replace it with empty string before translating to save resources
+            if len(gertext) == len(gerold):
+                for i in range(0, len(gertext), 1):
+                    if gertext[i] != gerold[i]:
+                        active_line = i
+                        active_content= gertext [active_line]
+                        gertext[active_line] = ""
+
+            else:
+                gerold=gertext
+                logging.info("line has changed")
+                continue
+
 
             for line in gertext:
                 # check if in line dic (either adds line translation and then append or append directly)
                 if line not in line_dic:
-                    line_dic[line] = call_deepL(line)
+                    line_dic[line] = call_deepL_decoy(line)
                     logging.info("translated line " + str(gertext.index(line)+1))
                 
                 engtext.append(line_dic[line])
-
+            # engtext[active_line]=active_content
             for line in engtext:
                 sinktext += line + "\n"
+            
 
             # Sinktext in Sink Pad schreiben
             c.setText(padID=id_sink, text=sinktext)
@@ -223,10 +238,6 @@ def translatorloop(id_source):
                 usagedict["character_count"]
 
             gerold = gertext
-            time.sleep(5)
-
-        else:
-            time.sleep(1)
 
         if break_this:
             break
