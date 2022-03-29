@@ -126,5 +126,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-KEYS/DEEPL_API_KEY.txt
-KEYS/ETH_API_KEY.txt
+DEEPL_API_KEY.txt
