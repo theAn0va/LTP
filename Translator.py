@@ -1,15 +1,12 @@
 import logging
 import requests
-import time
 from etherpad_lite import EtherpadLiteClient
+
 """
 To-Dos:
-*-Improve HTTP Request Speed (2s per set or Get currently except on work laptop)
 *-Web Implementation
 *-Check if Server Running
 -Have other PCs join the etherpad from a Local Network
--detect last changed line
-
 """
 
 
@@ -189,7 +186,9 @@ def translatorloop(id_source):
     # initialize Document Dictionary
     line_dic = {}
     gerold = []
-
+    active_line = -1 
+    
+    deepl_call_count = 0
 
     # Main Loop
     while True:
@@ -197,48 +196,53 @@ def translatorloop(id_source):
 
         if active:
             logging.debug("translater running")
-            # ct = Currenttext aus Source Pad auslesen, in liste schreiben und letzten eintrag (der der aktuell geschrieben wird) entfernen
             engtext = []
-            sinktext = ""
-            gertext = c.getText(padID=id_source)["text"].splitlines()
+            gertext =  c.getText(padID=id_source)["text"].splitlines()
 
-            # detect active_line and replace it with empty string before translating to save resources
+            
+            # detect active_line to not translate to save resources
             if len(gertext) == len(gerold):
-                for i in range(0, len(gertext), 1):
+                active_line = len(gertext) - 1 
+                for i in range(0, len(gertext)):
                     if gertext[i] != gerold[i]:
                         active_line = i
-                        active_content= gertext [active_line]
-                        gertext[active_line] = ""
+                        logging.debug(str(active_line+1))
 
             else:
                 gerold=gertext
-                logging.info("line has changed")
+                logging.debug("line has changed")
                 continue
 
-
-            for line in gertext:
+            # Translate gertext: Add text to engtext
+            for i, line in enumerate(gertext):
                 # check if in line dic (either adds line translation and then append or append directly)
-                if line not in line_dic:
+                if line not in line_dic and i != active_line:
                     line_dic[line] = call_deepL_decoy(line)
-                    logging.info("translated line " + str(gertext.index(line)+1))
-                
-                engtext.append(line_dic[line])
-            # engtext[active_line]=active_content
-            for line in engtext:
-                sinktext += line + "\n"
+                    deepl_call_count =+ 1
+                    logging.info("translated, count= " + str(deepl_call_count))                  
             
+            for i, line in enumerate(gertext):
+
+                # append (not translated) line (e.g. active line)
+                if line not in line_dic:
+                    engtext.append(line)
+                    continue
+
+                engtext.append(line_dic[line])
 
             # Sinktext in Sink Pad schreiben
-            c.setText(padID=id_sink, text=sinktext)
+            c.setText(padID=id_sink, text='\n'.join(engtext))
+            
 
             # Calculate Remaining Translatable Characters
-            global char_left
-            usagedict = call_deepL_usage()
-            char_left = usagedict["character_limit"] - \
-                usagedict["character_count"]
+            #global char_left
+            #usagedict = call_deepL_usage()
+            #char_left = usagedict["character_limit"] - \
+            #    usagedict["character_count"]
 
             gerold = gertext
 
+        # for quitting GUI, otherwise program will run foreeeveeeeerr
         if break_this:
             break
 
