@@ -1,5 +1,5 @@
+import logging
 import requests
-import time
 from etherpad_lite import EtherpadLiteClient
 
 """
@@ -63,8 +63,8 @@ METHOD_DICT = {
 }
 
 # The Ether Key is in the etherpad root directory and the DeepL Key in your account Settings
-ETH_API_KEY = open("KEYS/ETH_API_KEY.txt", "r").read()
-DEEPL_API_KEY = open("KEYS/DEEPL_API_KEY.txt", "r").read()
+ETH_API_KEY = open("ETH_API_KEY.txt", "r").read()
+DEEPL_API_KEY = open("DEEPL_API_KEY.txt", "r").read()
 
 # Initialising the Pad Client c
 c = EtherpadLiteClient(base_params={"apikey": ETH_API_KEY})
@@ -85,6 +85,7 @@ def call_ether_methods(method_to_call, **kwargs):
     )
     return x.json()
 
+
 def call_deepL(text):
     """
     Returns translated text that is given
@@ -96,45 +97,88 @@ def call_deepL(text):
     )
     return x.json()["translations"][0]["text"]
 
+
 def call_deepL_decoy(text):
     """
     Changes the given text arbitrarily to save DeepL Resources
     """
     return text.swapcase()
 
+
 def call_deepL_usage():
-    global char_left
     """
     Returns used characters and character limit
     """
     # Manual HTTP request
     x = requests.get(
         f"https://api-free.deepl.com/v2/usage?auth_key={DEEPL_API_KEY}")
-    usagedict = x.json()
-    char_left = usagedict["character_limit"] - usagedict["character_count"]
-
     return x.json()
+
+
+# Start and stop Main Loop
+active = False
+
+
+def start_loop():
+    global active
+    if active:
+        logging.info("Already Running")
+    else:
+        active = True
+        logging.info("Translator starting")
+
+
+def stop_loop():
+    global active
+
+    if not active:
+        # logging.info("Translator already stopped")
+        pass
+    else:
+        active = False
+        logging.info("Translator stopping")
+
+
+# Break Main Loop
+def break_main_loop():
+    global break_this
+    if not break_this:
+        break_this = True
+        logging.debug("Translator terminated")
+
 
 def create_pads(id_source):
     # Create Source and Sink Pad if it doesn't exist
     if id_source not in call_ether_methods("listAllPads")["data"]["padIDs"]:
         c.createPad(padID=id_source)
-        print(id_source + " created")
+        logging.info(id_source + " created")
     else:
-        print(id_source + " already exists")
+        logging.info(id_source + " already exists")
 
     id_sink = id_source + "trans"
 
     if id_sink not in call_ether_methods("listAllPads")["data"]["padIDs"]:
         c.createPad(padID=id_sink)
-        print(id_sink + " created")
+        logging.info(id_sink + " created")
     else:
-        print(id_sink + " already exists")
+        logging.info(id_sink + " already exists")
+
+
+# Initialise variable
+break_this = True
+global char_left
+usagedict = call_deepL_usage()
+char_left = usagedict["character_limit"] - usagedict["character_count"]
+
+# Main Loop
+
 
 def translatorloop(id_source):
+    global break_this
+    break_this = False
     # Check if Pads exist
     if id_source not in call_ether_methods("listAllPads")["data"]["padIDs"]:
-        print("Pads dont exist yet")
+        logging.info("Pads dont exist yet")
 
     # Initialise Pad IDs
     id_sink = id_source + "trans"
@@ -143,62 +187,68 @@ def translatorloop(id_source):
     line_dic = {}
     gerold = []
     active_line = -1 
+    
+    deepl_call_count = 0
 
     # Main Loop
     while True:
+        global active
 
-        engtext = []
-        gertext =  c.getText(padID=id_source)["text"].splitlines()
+        if active:
+            logging.debug("translater running")
+            engtext = []
+            gertext =  c.getText(padID=id_source)["text"].splitlines()
 
-        
-        # detect active_line to not translate to save resources
-        if len(gertext) == len(gerold):
-            active_line = len(gertext) - 1 
-            for i in range(0, len(gertext)):
-                if gertext[i] != gerold[i]:
-                    active_line = i
-                    print(str(active_line+1))
+            
+            # detect active_line to not translate to save resources
+            if len(gertext) == len(gerold):
+                active_line = len(gertext) - 1 
+                for i in range(0, len(gertext)):
+                    if gertext[i] != gerold[i]:
+                        active_line = i
+                        logging.debug(str(active_line+1))
 
-        else:
-            gerold=gertext
-            print("line has changed")
-            continue
-
-        # Translate gertext: Add text to engtext
-        for i, line in enumerate(gertext):
-            # check if in line dic (either adds line translation and then append or append directly)
-            if line not in line_dic and i != active_line:
-                line_dic[line] = call_deepL_decoy(line)                 
-        
-        for i, line in enumerate(gertext):
-
-            # append (not translated) line (e.g. active line)
-            if line not in line_dic:
-                engtext.append(line)
+            else:
+                gerold=gertext
+                logging.debug("line has changed")
                 continue
 
-            engtext.append(line_dic[line])
+            # Translate gertext: Add text to engtext
+            for i, line in enumerate(gertext):
+                # check if in line dic (either adds line translation and then append or append directly)
+                if line not in line_dic and i != active_line:
+                    line_dic[line] = call_deepL_decoy(line)
+                    deepl_call_count =+ 1
+                    logging.info("translated, count= " + str(deepl_call_count))                  
+            
+            for i, line in enumerate(gertext):
+
+                # append (not translated) line (e.g. active line)
+                if line not in line_dic:
+                    engtext.append(line)
+                    continue
+
+                engtext.append(line_dic[line])
 
             # Sinktext in Sink Pad schreiben
             c.setText(padID=id_sink, text='\n'.join(engtext))
             
 
-            #Calculate Remaining Translatable Characters
-            global char_left
-            usagedict = call_deepL_usage()
-            char_left = usagedict["character_limit"] - \
-                usagedict["character_count"]
+            # Calculate Remaining Translatable Characters
+            #global char_left
+            #usagedict = call_deepL_usage()
+            #char_left = usagedict["character_limit"] - \
+            #    usagedict["character_count"]
 
             gerold = gertext
-            time.sleep(2)
+
+        # for quitting GUI, otherwise program will run foreeeveeeeerr
+        if break_this:
+            break
 
 
 if __name__ == "__main__":
-
-    call_deepL_usage()
-    print(char_left + " Characters remaining")
-
     id_source = input("Enter Source Pad Name:  ")
     create_pads(id_source)
-
+    start_loop()
     translatorloop(id_source)
