@@ -6,6 +6,7 @@ from etherpad_lite import EtherpadLiteClient
 """
 To-Dos:
 *-Web Implementation
+stuff
 *-Check if Server Running
 -Have other PCs join the etherpad from a Local Network
 """
