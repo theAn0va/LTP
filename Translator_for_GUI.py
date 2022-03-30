@@ -202,10 +202,13 @@ def translateonce(id_source, gerold, line_dic):
 
     else:
         gerold = gertext
+        print("Pad length has changed")
         logging.debug("Pad Length has changed")
+        gertext, line_dic = translateonce(id_source, gerold, line_dic)
         return(gertext, line_dic)
 
     logging.debug("Active Line = " + str(active_line+1))
+    print("passed")
 
     # Translate gertext: Add text to engtext
     for i, line in enumerate(gertext):
