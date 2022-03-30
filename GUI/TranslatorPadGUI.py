@@ -1,6 +1,7 @@
 import logging
 from os import name
 import sys
+import ifcfg
 import webbrowser
 from PySide6 import QtWidgets
 import Translator_for_GUI as Translator
@@ -25,6 +26,12 @@ class GUI(QWidget):
         self.line_dic = {}
         self.gerold = []
         self.runtranslate= False
+        self.nointernet = False
+        self.currentip= ifcfg.interfaces()["Wireless LAN adapter Wi-Fi"]["inet"]
+        self.internetflag=False
+        if self.currentip == None:
+            self.nointernet = True
+        print(str(self.currentip))
 
 
     def timerEvent(self, event: QTimerEvent) -> None:
@@ -34,9 +41,15 @@ class GUI(QWidget):
             self.gerold = gertext
         else:
             self.square.setStyleSheet("background-color: red")
-        self.charleftlbl.setText(
-            "Translatable Characters left: " + str(Translator.char_left)
-        )
+        if not self.nointernet:
+            self.charleftlbl.setText("Translatable Characters left: " + str(Translator.call_deepL_usage()))
+        elif not self.internetflag:
+            logging.error("No Internet")
+            self.charleftlbl.setText("Offline, Please Restart with Internet")
+            self.internetflag = True
+
+        
+
 
         return super().timerEvent(event)
 
@@ -57,9 +70,12 @@ class GUI(QWidget):
 
     def set_name(self, event):
         self.name = event
-        if self.name:
+        if self.name and not self.nointernet:
             self.sinkinput.setText(
-                "http://127.0.0.1:9001/p/" + self.name + "trans")
+                str(self.currentip) + ":9001/p/" + self.name + "trans"
+                )
+        elif self.nointernet:
+            self.sinkinput.setText("No Internet")
         else:
             self.sinkinput.setText("")
 

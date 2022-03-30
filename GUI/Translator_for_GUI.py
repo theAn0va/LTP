@@ -80,8 +80,9 @@ def call_ether_methods(method_to_call, **kwargs):
             f"http://127.0.0.1:9001/api/{api_version}/{method_to_call}?apikey={ETH_API_KEY}{args_string}", proxies={"http": None, "https": None}
         )
     except requests.exceptions.ConnectionError:
-        print("Etherpad Server most likely not running")
-        exit()
+        logging.error("Etherpad Server most likely not running")
+        return None
+        
     return x.json()
 
 
@@ -96,13 +97,13 @@ def call_deepL_translate(text):
             f"https://api-free.deepl.com/v2/translate?auth_key={DEEPL_API_KEY}&text={text}&target_lang=en-GB&source_lang=de&preserve_formatting=1&tag_handling=0"
         )
     except requests.exceptions.ConnectionError:
-        print("DeepL Server unreachable")
-        exit()
+        logging.error("DeepL Server unreachable")
+        return 
 
     if not x.ok:
-        print("No or Wrong API Key")
+        logging.error("No or Wrong API Key")
         webbrowser.open(f"https://http.cat/{x.status_code}")
-        exit()
+        return
 
     return x.json()["translations"][0]["text"]
 
@@ -124,18 +125,18 @@ def call_deepL_usage():
         x = requests.get(
             f"https://api-free.deepl.com/v2/usage?auth_key={DEEPL_API_KEY}")
     except requests.exceptions.ConnectionError:
-        print("DeepL Server unreachable")
-        exit()
+        logging.error("DeepL Server unreachable")
+        return 0
 
     if not x.ok:
-        print("No or Wrong API Key")
+        logging.error("No or Wrong API Key")
         webbrowser.open(f"https://http.cat/{x.status_code}")
-        exit()
+        
 
     usagedict = x.json()
     char_left = usagedict["character_limit"] - usagedict["character_count"]
 
-    return x.json()
+    return char_left
 
 
 def create_pads(id_source):
@@ -143,25 +144,25 @@ def create_pads(id_source):
     json_all_pads = call_ether_methods("listAllPads")
     if json_all_pads["code"] != 0:
         #raise Exception(json_all_pads['message'])
-        print(json_all_pads["message"])
-        exit()
+        logging.error(json_all_pads["message"])
+        
 
     if not id_source:
-        print("String can't be empty!")
-        exit()
+        logging.error("String can't be empty!")
+        
     elif id_source not in json_all_pads["data"]["padIDs"]:
         c.createPad(padID=id_source)
-        print(id_source + " created")
+        logging.info(id_source + " created")
     else:
-        print(id_source + " already exists")
+        logging.error(id_source + " already exists")
 
     id_sink = id_source + "trans"
 
     if id_sink not in call_ether_methods("listAllPads")["data"]["padIDs"]:
         c.createPad(padID=id_sink)
-        print(id_sink + " created")
+        logging.info(id_sink + " created")
     else:
-        print(id_sink + " already exists")
+        logging.error(id_sink + " already exists")
 
 
 # Initialise variable
@@ -175,7 +176,7 @@ char_left = 500000
 def translateonce(id_source, gerold, line_dic):
     # Check if Pads exist
     if id_source not in call_ether_methods("listAllPads")["data"]["padIDs"]:
-        print("Pads dont exist yet")
+        logging.error("Pads dont exist yet")
         gertext = []
         line_dic = {}
         return(gertext, line_dic)
@@ -235,7 +236,7 @@ def translateonce(id_source, gerold, line_dic):
     #    usagedict["character_count"]
 
     gerold = gertext
-    #print("Characters used = " + str(char_used))
+    #logging.error("Characters used = " + str(char_used))
     logging.info(str(datetime.datetime.now().strftime("%H:%M:%S")) + "     " +
           str(len(engtext)) + " Lines Translated")
     return(gertext, line_dic)
@@ -243,7 +244,7 @@ def translateonce(id_source, gerold, line_dic):
 
 if __name__ == "__main__":
     #call_deepL_usage()
-    #print(str(char_left) + " Characters remaining")
+    #logging.error(str(char_left) + " Characters remaining")
 
     id_source = input("Enter Source Pad Name:  ")
     while not id_source:
