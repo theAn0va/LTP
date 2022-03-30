@@ -22,7 +22,7 @@ class GUI(QWidget):
         super().__init__()
         self.name = ""
         self.init_ui()
-        QTimer.startTimer(self, 700, timerType=Qt.CoarseTimer)
+        QTimer.startTimer(self, 1200, timerType=Qt.CoarseTimer)
         self.line_dic = {}
         self.gerold = []
         self.runtranslate= False
