@@ -1,13 +1,8 @@
 import logging
+import datetime
 import requests
+import webbrowser
 from etherpad_lite import EtherpadLiteClient
-
-"""
-To-Dos:
-*-Web Implementation
-*-Check if Server Running
--Have other PCs join the etherpad from a Local Network
-"""
 
 
 # Methods only work if given the specific API Version it belongs to, so here is a dict to pair every method to its version
@@ -74,21 +69,20 @@ def call_ether_methods(method_to_call, **kwargs):
     """
     Method to use any "non 1.0" API-Methods
     """
+    # List Comprehension
+    args_string = "".join([f"&{key}={value}" for key, value in kwargs.items()])
+
+    api_version = METHOD_DICT[method_to_call]
+
+    # Manual HTTP request
     try:
-        # List Comprehension
-        args_string = "".join([f"&{key}={value}" for key, value in kwargs.items()])
-
-        api_version = METHOD_DICT[method_to_call]
-
-        # Manual HTTP request
         x = requests.get(
-            f"http://localhost:9001/api/{api_version}/{method_to_call}?apikey={ETH_API_KEY}{args_string}"
+            f"http://127.0.0.1:9001/api/{api_version}/{method_to_call}?apikey={ETH_API_KEY}{args_string}", proxies={"http": None, "https": None}
         )
-        y=x.json()
-    except:
-        print("Ether Method failed")
-
-    return y
+    except requests.exceptions.ConnectionError:
+        print("Etherpad Server most likely not running")
+        exit()
+    return x.json()
 
 
 def call_deepL_translate(text):
@@ -97,9 +91,19 @@ def call_deepL_translate(text):
     """
 
     # Manual HTTP request
-    x = requests.get(
-        f"https://api-free.deepl.com/v2/translate?auth_key={DEEPL_API_KEY}&text={text}&target_lang=en-GB&source_lang=de&preserve_formatting=1&tag_handling=0"
-    )
+    try:
+        x = requests.get(
+            f"https://api-free.deepl.com/v2/translate?auth_key={DEEPL_API_KEY}&text={text}&target_lang=en-GB&source_lang=de&preserve_formatting=1&tag_handling=0"
+        )
+    except requests.exceptions.ConnectionError:
+        print("DeepL Server unreachable")
+        exit()
+
+    if not x.ok:
+        print("No or Wrong API Key")
+        webbrowser.open(f"https://http.cat/{x.status_code}")
+        exit()
+
     return x.json()["translations"][0]["text"]
 
 
@@ -111,33 +115,54 @@ def call_deepL_decoy(text):
 
 
 def call_deepL_usage():
+    global char_left
     """
     Returns used characters and character limit
     """
     # Manual HTTP request
-    x = requests.get(
-        f"https://api-free.deepl.com/v2/usage?auth_key={DEEPL_API_KEY}")
+    try:
+        x = requests.get(
+            f"https://api-free.deepl.com/v2/usage?auth_key={DEEPL_API_KEY}")
+    except requests.exceptions.ConnectionError:
+        print("DeepL Server unreachable")
+        exit()
+
+    if not x.ok:
+        print("No or Wrong API Key")
+        webbrowser.open(f"https://http.cat/{x.status_code}")
+        exit()
+
+    usagedict = x.json()
+    char_left = usagedict["character_limit"] - usagedict["character_count"]
+
     return x.json()
 
 
 def create_pads(id_source):
     # Create Source and Sink Pad if it doesn't exist
-    try:        
-        if id_source not in call_ether_methods("listAllPads")["data"]["padIDs"]:
-            c.createPad(padID=id_source)
-            logging.info(id_source + " created")
-        else:
-            logging.info(id_source + " already exists")
+    json_all_pads = call_ether_methods("listAllPads")
+    if json_all_pads["code"] != 0:
+        #raise Exception(json_all_pads['message'])
+        print(json_all_pads["message"])
+        exit()
 
-        id_sink = id_source + "trans"
+    if not id_source:
+        print("String can't be empty!")
+        exit()
+    elif id_source not in json_all_pads["data"]["padIDs"]:
+        c.createPad(padID=id_source)
+        print(id_source + " created")
+    else:
+        print(id_source + " already exists")
 
-        if id_sink not in call_ether_methods("listAllPads")["data"]["padIDs"]:
-            c.createPad(padID=id_sink)
-            logging.info(id_sink + " created")
-        else:
-            logging.info(id_sink + " already exists")
-    except:
-        print("Create failed somehow")
+    id_sink = id_source + "trans"
+
+    if id_sink not in call_ether_methods("listAllPads")["data"]["padIDs"]:
+        c.createPad(padID=id_sink)
+        print(id_sink + " created")
+    else:
+        print(id_sink + " already exists")
+
 
 # Initialise variable
 global char_left
@@ -145,78 +170,93 @@ global char_left
 #char_left = usagedict["character_limit"] - usagedict["character_count"]
 char_left = 500000
 
-# Main Loop
-def translateonce(id_source):
+
+# Main Function
+def translateonce(id_source, gerold, line_dic):
     # Check if Pads exist
     if id_source not in call_ether_methods("listAllPads")["data"]["padIDs"]:
-        logging.info("Pads dont exist yet")
+        print("Pads dont exist yet")
+        gertext = []
+        line_dic = {}
+        return(gertext, line_dic)
 
     # Initialise Pad IDs
     id_sink = id_source + "trans"
 
     # initialize Document Dictionary
-    line_dic = {}
-    gerold = []
-    active_line = -1 
-    
-    deepl_call_count = 0
 
-    # Main Function
-    #try:
+    active_line = -1
 
-    logging.debug("translater running")
+    char_used = 0
+
     engtext = []
-    gertext =  c.getText(padID=id_source)["text"].splitlines()
+    gertext = c.getText(padID=id_source)["text"].splitlines()
 
-    
     # detect active_line to not translate to save resources
     if len(gertext) == len(gerold):
-        active_line = len(gertext) - 1 
+        active_line = len(gertext) - 1
         for i in range(0, len(gertext)):
             if gertext[i] != gerold[i]:
                 active_line = i
-                logging.debug(str(active_line+1))
 
     else:
-        gerold=gertext
-        logging.debug("line has changed")
-        return
+        gerold = gertext
+        logging.debug("Pad Length has changed")
+        return(gertext, line_dic)
+
+    logging.debug("Active Line = " + str(active_line+1))
 
     # Translate gertext: Add text to engtext
     for i, line in enumerate(gertext):
         # check if in line dic (either adds line translation and then append or append directly)
         if line not in line_dic and i != active_line:
             line_dic[line] = call_deepL_decoy(line)
-            deepl_call_count =+ 1
-            logging.info("translated, count= " + str(deepl_call_count))                  
-    
+            # count characters translated
+            char_used += len(line.replace(" ", "").replace("\t",
+                             "").replace("\r", ""))
+
     for i, line in enumerate(gertext):
 
         # append (not translated) line (e.g. active line)
         if line not in line_dic:
             engtext.append(line)
-            return
 
-        engtext.append(line_dic[line])
+        else:
+            engtext.append(line_dic[line])
 
     # Sinktext in Sink Pad schreiben
-    c.setText(padID=id_sink, text='\n'.join(engtext))
-    
 
-    # Calculate Remaining Translatable Characters
-    global char_left
+    c.setText(padID=id_sink, text='\n'.join(engtext))
+
+    #Calculate Remaining Translatable Characters
+    #global char_left
     #usagedict = call_deepL_usage()
-    #char_left = usagedict["character_limit"] - \   usagedict["character_count"]
-    char_left = 500000
+    #char_left = usagedict["character_limit"] - \
+    #    usagedict["character_count"]
 
     gerold = gertext
-    #except:
-    #    print("F*ck")
-        
+    #print("Characters used = " + str(char_used))
+    logging.info(str(datetime.datetime.now().strftime("%H:%M:%S")) + "     " +
+          str(len(engtext)) + " Lines Translated")
+    return(gertext, line_dic)
 
 
 if __name__ == "__main__":
+    #call_deepL_usage()
+    #print(str(char_left) + " Characters remaining")
+
     id_source = input("Enter Source Pad Name:  ")
+    while not id_source:
+        id_source = input("Pad Name can't be empty, please enter new Name: ")
     create_pads(id_source)
+
+    #webbrowser.open(f"http://localhost:9001/p/{id_source}")
+    #webbrowser.open(f"http://localhost:9001/p/{id_source}trans")
+
+    line_dic = {}
+    gerold = []
+
     while True:
-        translateonce(id_source)
+        gertext, line_dic = translateonce(id_source, gerold, line_dic)
+        gerold = gertext
+        input("Press Enter to continue")

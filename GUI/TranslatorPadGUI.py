@@ -3,7 +3,7 @@ from os import name
 import sys
 import webbrowser
 from PySide6 import QtWidgets
-import Translator
+import Translator_for_GUI as Translator
 from PySide6.QtWidgets import (
     QFrame,
     QLabel,
@@ -13,34 +13,25 @@ from PySide6.QtWidgets import (
     QPushButton,
     QApplication,
 )
-from PySide6.QtCore import QRunnable, Qt, QThreadPool, QTimer, QTimerEvent
-
-
-class TranslatorThread(QRunnable):
-    def run(self):
-        global name
-        if not name:
-            logging.warning("Name can't be empty")
-        else:
-            Translator.translatorloop(name)
+from PySide6.QtCore import Qt, QTimer, QTimerEvent
 
 
 class GUI(QWidget):
     def __init__(self):
         super().__init__()
         self.name = ""
-        self.threadpool = QThreadPool()
-        self.threadpool.setMaxThreadCount(1)
         self.init_ui()
         QTimer.startTimer(self, 700, timerType=Qt.CoarseTimer)
+        self.line_dic = {}
+        self.gerold = []
+        self.runtranslate= False
 
-    def thread_count(self):
-        logging.info("Multithreading with maximum %d thread" %
-                     self.threadpool.maxThreadCount())
 
     def timerEvent(self, event: QTimerEvent) -> None:
-        if Translator.active:
+        if self.runtranslate:
             self.square.setStyleSheet("background-color: green")
+            gertext, self.line_dic = Translator.translateonce(self.name, self.gerold, self.line_dic)
+            self.gerold = gertext
         else:
             self.square.setStyleSheet("background-color: red")
         self.charleftlbl.setText(
@@ -49,23 +40,7 @@ class GUI(QWidget):
 
         return super().timerEvent(event)
 
-    def main_loop(self):
-        global name
-        name = self.name
-        worker = TranslatorThread()
-        self.threadpool.start(worker)
-
-    def start_loop(self):
-        if not self.name:
-            pass
-        else:
-            Translator.start_loop()
-
-    def stop_loop(self):
-        Translator.stop_loop()
-
     def closeEvent(self, event):
-        Translator.break_main_loop()
         logging.info("Program quit")
 
     def create_pads(self):
@@ -74,24 +49,29 @@ class GUI(QWidget):
         else:
             Translator.create_pads(self.name)
 
+    def start_translate(self):
+        self.runtranslate = True
+
+    def stop_translate(self):
+        self.runtranslate = False
+
     def set_name(self, event):
         self.name = event
-        Translator.stop_loop()
         if self.name:
             self.sinkinput.setText(
-                "http://localhost:9001/p/" + self.name + "trans")
+                "http://127.0.0.1:9001/p/" + self.name + "trans")
         else:
             self.sinkinput.setText("")
 
     def open_URL_source(self):
-        url = f"http://localhost:9001/p/{self.name}"
+        url = f"http://127.0.0.1:9001/p/{self.name}"
         if not self.name:
             logging.warning("Name can't be empty")
         else:
             webbrowser.open(url, new=0, autoraise=True)
 
     def open_URL_sink(self):
-        url = f"http://localhost:9001/p/{self.name}trans"
+        url = f"http://127.0.0.1:9001/p/{self.name}trans"
         if not self.name:
             pass
         else:
@@ -101,8 +81,7 @@ class GUI(QWidget):
         # Start Server and Translation Json Button
         self.startButton = QPushButton("Start \n Translation", self)
         self.startButton.move(20, 20)
-        self.startButton.clicked.connect(self.start_loop)
-        self.startButton.clicked.connect(self.main_loop)
+        self.startButton.clicked.connect(self.start_translate)
 
         # Console
         self.console = QTextEdit(self)
@@ -114,7 +93,8 @@ class GUI(QWidget):
         # Stop Server and Translation Json Button
         self.StopButton = QPushButton("Stop \n Translation", self)
         self.StopButton.move(100, 20)
-        self.StopButton.clicked.connect(self.stop_loop)
+        self.StopButton.clicked.connect(self.stop_translate)
+
 
         # Status LED
         self.square = QFrame(self)
@@ -138,7 +118,7 @@ class GUI(QWidget):
         self.sourceinput.setPlaceholderText("Pad Name")
         self.sourceinput.setFixedWidth(200)
         self.sourceinput.textEdited.connect(self.set_name)
-        self.sourceinput.textEdited.connect(Translator.break_main_loop)
+        self.sourceinput.textEdited.connect(self.stop_translate)
 
         # Open current Pad in Browser
         self.opensourceButton = QPushButton("Open in \nBrowser", self)
@@ -187,7 +167,6 @@ def main():
     handler = QtLoggingHandler(ex.console)
     handler.setLevel(logging.DEBUG)
     logging.getLogger().addHandler(handler)
-    ex.thread_count()
     sys.exit(app.exec())
 
 
