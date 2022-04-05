@@ -1,4 +1,6 @@
 import logging
+from tabnanny import verbose
+import deepl
 import datetime
 import requests
 import webbrowser
@@ -61,8 +63,14 @@ METHOD_DICT = {
 ETH_API_KEY = open("ETH_API_KEY.txt", "r").read()
 DEEPL_API_KEY = open("DEEPL_API_KEY.txt", "r").read()
 
-# Initialising the Pad Client c
+# Initialising the Pad Client c and deepL object
 c = EtherpadLiteClient(base_params={"apikey": ETH_API_KEY})
+try:
+    d = deepl.Translator(DEEPL_API_KEY)
+except AttributeError:
+    logging.error("No or Wrong API Key")
+    webbrowser.open(f"https://http.cat/403")    
+logging.getLogger('deepl').setLevel(logging.WARNING)
 
 
 def call_ether_methods(method_to_call, **kwargs):
@@ -91,6 +99,7 @@ def call_deepL_translate(text):
     Returns translated text that is given
     """
 
+    """
     # Manual HTTP request
     try:
         x = requests.get(
@@ -106,6 +115,14 @@ def call_deepL_translate(text):
         return
 
     return x.json()["translations"][0]["text"]
+    """
+
+    if text:
+        try:
+            return str(d.translate_text(text, target_lang="EN-GB"))
+        except deepl.DeepLException as error:
+            pass
+    return text
 
 
 def call_deepL_decoy(text):
@@ -116,7 +133,6 @@ def call_deepL_decoy(text):
 
 
 def call_deepL_usage():
-    global char_left
     """
     Returns used characters and character limit
     """
@@ -214,7 +230,7 @@ def translateonce(id_source, gerold, line_dic):
     for i, line in enumerate(gertext):
         # check if in line dic (either adds line translation and then append or append directly)
         if line not in line_dic and i != active_line:
-            line_dic[line] = call_deepL_decoy(line)
+            line_dic[line] = call_deepL_translate(line)
             # count characters translated
             char_used += len(line.replace(" ", "").replace("\t",
                              "").replace("\r", ""))

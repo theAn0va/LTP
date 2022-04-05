@@ -1,7 +1,7 @@
 import logging
 from os import name
 import sys
-import ifcfg
+import socket
 import webbrowser
 from PySide6 import QtWidgets
 import Translator_for_GUI as Translator
@@ -26,32 +26,42 @@ class GUI(QWidget):
         self.line_dic = {}
         self.gerold = []
         self.runtranslate= False
-        self.nointernet = False
-        self.currentip= ifcfg.interfaces()["Wireless LAN adapter Wi-Fi"]["inet"]
-        self.internetflag=False
-        if self.currentip == None:
-            self.nointernet = True
-        print(str(self.currentip))
+
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0)
+        try:
+            # doesn't even have to be reachable
+            s.connect(('10.255.255.255', 1))
+            self.currentip = s.getsockname()[0]
+        except Exception:
+            self.currentip = '127.0.0.1'
+        s.close()
+
+
 
 
     def timerEvent(self, event: QTimerEvent) -> None:
-        if self.runtranslate:
+        charleft=Translator.call_deepL_usage()
+
+        if charleft != 0:
+            self.charleftlbl.setText("Translatable Characters left: " + str(charleft))
+        elif charleft == 0:
+            logging.error("Can't reach DeepL")
+            self.charleftlbl.setText("DeepL unreachable")
+        else:
+            print("wtf")
+
+        
+        if self.runtranslate and charleft!=0:
             self.square.setStyleSheet("background-color: green")
             gertext, self.line_dic = Translator.translateonce(self.name, self.gerold, self.line_dic)
             self.gerold = gertext
         else:
             self.square.setStyleSheet("background-color: red")
-        if not self.nointernet:
-            self.charleftlbl.setText("Translatable Characters left: " + str(Translator.call_deepL_usage()))
-        elif not self.internetflag:
-            logging.error("No Internet")
-            self.charleftlbl.setText("Offline, Please Restart with Internet")
-            self.internetflag = True
-
         
-
-
         return super().timerEvent(event)
+
 
     def closeEvent(self, event):
         logging.info("Program quit")
@@ -64,20 +74,23 @@ class GUI(QWidget):
 
     def start_translate(self):
         self.runtranslate = True
+        logging.info("Starting Translate")
 
     def stop_translate(self):
         self.runtranslate = False
+        logging.info("Stopping Translator")
 
     def set_name(self, event):
         self.name = event
-        if self.name and not self.nointernet:
+        if self.name:
             self.sinkinput.setText(
                 str(self.currentip) + ":9001/p/" + self.name + "trans"
                 )
-        elif self.nointernet:
-            self.sinkinput.setText("No Internet")
         else:
             self.sinkinput.setText("")
+        
+        if self.runtranslate == True:
+            self.stop_translate()
 
     def open_URL_source(self):
         url = f"http://127.0.0.1:9001/p/{self.name}"
@@ -118,7 +131,7 @@ class GUI(QWidget):
         self.square.setStyleSheet("background-color: black")
 
         # Label
-        self.createpadlbl = QLabel("Create Pad", self)
+        self.createpadlbl = QLabel("Create Pads", self)
         self.createpadlbl.move(20, 80)
 
         # English Pad URL
@@ -134,7 +147,6 @@ class GUI(QWidget):
         self.sourceinput.setPlaceholderText("Pad Name")
         self.sourceinput.setFixedWidth(200)
         self.sourceinput.textEdited.connect(self.set_name)
-        self.sourceinput.textEdited.connect(self.stop_translate)
 
         # Open current Pad in Browser
         self.opensourceButton = QPushButton("Open in \nBrowser", self)
