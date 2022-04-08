@@ -63,14 +63,53 @@ METHOD_DICT = {
 ETH_API_KEY = open("ETH_API_KEY.txt", "r").read()
 DEEPL_API_KEY = open("DEEPL_API_KEY.txt", "r").read()
 
-# Initialising the Pad Client c and deepL object
+# Initialising the Pad Client c
 c = EtherpadLiteClient(base_params={"apikey": ETH_API_KEY})
+
+
+#Initialising DeepL object and glossary
 try:
     d = deepl.Translator(DEEPL_API_KEY)
 except AttributeError:
     logging.error("No or Wrong API Key")
     webbrowser.open(f"https://http.cat/403")    
 logging.getLogger('deepl').setLevel(logging.WARNING)
+
+
+glossary_de_to_en = d.create_glossary(
+    "My glossary",
+    source_lang="DE",
+    target_lang="EN",
+    entries={
+    'Clubausweis':,
+    'Einlass':,
+    'Vorstand':,
+    'Fluten':,
+    'Öffnungen':,
+    'Mutti':,
+    'Mäuschen':,
+    'Ampel':'Ampel',
+    'Rückblick':,
+    'Dienstplan':,
+    'Geschäftliches':,
+    'Persönliches':,
+    'Personelles':,
+    'Werbe Team':,
+    'Uhu':'Uhu',
+    'Clubverbot':
+    'Karo':'Karo',
+    'Buschmann':'Buschmann'
+    
+    
+    
+    
+    
+    
+    
+    },
+)
+
+
 
 
 def call_ether_methods(method_to_call, **kwargs):
@@ -99,23 +138,21 @@ def call_deepL_translate(text):
     Returns translated text that is given
     """
 
-    """
-    # Manual HTTP request
-    try:
-        x = requests.get(
-            f"https://api-free.deepl.com/v2/translate?auth_key={DEEPL_API_KEY}&text={text}&target_lang=en-GB&source_lang=de&preserve_formatting=1&tag_handling=0"
-        )
-    except requests.exceptions.ConnectionError:
-        logging.error("DeepL Server unreachable")
-        return 
+    # # Manual HTTP request
+    # try:
+    #     x = requests.get(
+    #         f"https://api-free.deepl.com/v2/translate?auth_key={DEEPL_API_KEY}&text={text}&target_lang=en-GB&source_lang=de&preserve_formatting=1&tag_handling=0"
+    #     )
+    # except requests.exceptions.ConnectionError:
+    #     logging.error("DeepL Server unreachable")
+    #     return 
 
-    if not x.ok:
-        logging.error("No or Wrong API Key")
-        webbrowser.open(f"https://http.cat/{x.status_code}")
-        return
+    # if not x.ok:
+    #     logging.error("No or Wrong API Key")
+    #     webbrowser.open(f"https://http.cat/{x.status_code}")
+    #     return
 
-    return x.json()["translations"][0]["text"]
-    """
+    # return x.json()["translations"][0]["text"]
 
     if text:
         try:
@@ -125,35 +162,38 @@ def call_deepL_translate(text):
     return text
 
 
-def call_deepL_decoy(text):
-    """
-    Changes the given text arbitrarily to save DeepL Resources
-    """
-    return text.swapcase()
-
-
 def call_deepL_usage():
     """
     Returns used characters and character limit
     """
     # Manual HTTP request
-    try:
-        x = requests.get(
-            f"https://api-free.deepl.com/v2/usage?auth_key={DEEPL_API_KEY}")
-    except requests.exceptions.ConnectionError:
-        logging.error("DeepL Server unreachable")
-        return 0
+    # try:
+    #     x = requests.get(
+    #         f"https://api-free.deepl.com/v2/usage?auth_key={DEEPL_API_KEY}")
+    # except requests.exceptions.ConnectionError:
+    #     logging.error("DeepL Server unreachable")
+    #     return 0
 
-    if not x.ok:
-        logging.error("No or Wrong API Key")
-        webbrowser.open(f"https://http.cat/{x.status_code}")
+    # if not x.ok:
+    #     logging.error("No or Wrong API Key")
+    #     webbrowser.open(f"https://http.cat/{x.status_code}")
         
 
-    usagedict = x.json()
-    char_left = usagedict["character_limit"] - usagedict["character_count"]
+    # usagedict = x.json()
+    # char_left = usagedict["character_limit"] - usagedict["character_count"]
 
-    return char_left
-
+    # return char_left
+    
+    
+    try:
+        usage = d.get_usage()
+    except:
+        return -1
+    if usage.character.limit_exceeded:
+        logging.ERROR("Character limit exceeded.")
+        return 0
+    else:
+        return usage.character.limit-usage.character.count
 
 def create_pads(id_source):
     # Create Source and Sink Pad if it doesn't exist
@@ -179,14 +219,6 @@ def create_pads(id_source):
         logging.info(id_sink + " created")
     else:
         logging.error(id_sink + " already exists")
-
-
-# Initialise variable
-global char_left
-#usagedict = call_deepL_usage()
-#char_left = usagedict["character_limit"] - usagedict["character_count"]
-char_left = 500000
-
 
 # Main Function
 def translateonce(id_source, gerold, line_dic):
@@ -224,7 +256,6 @@ def translateonce(id_source, gerold, line_dic):
         return(gertext, line_dic)
 
     logging.debug("Active Line = " + str(active_line+1))
-    print("passed")
 
     # Translate gertext: Add text to engtext
     for i, line in enumerate(gertext):
@@ -248,22 +279,15 @@ def translateonce(id_source, gerold, line_dic):
 
     c.setText(padID=id_sink, text='\n'.join(engtext))
 
-    #Calculate Remaining Translatable Characters
-    #global char_left
-    #usagedict = call_deepL_usage()
-    #char_left = usagedict["character_limit"] - \
-    #    usagedict["character_count"]
-
     gerold = gertext
     #logging.error("Characters used = " + str(char_used))
     logging.info(str(datetime.datetime.now().strftime("%H:%M:%S")) + "     " +
-          str(len(engtext)) + " Lines Translated")
+          str(len(engtext)) + " Lines ")
     return(gertext, line_dic)
 
 
 if __name__ == "__main__":
-    #call_deepL_usage()
-    #logging.error(str(char_left) + " Characters remaining")
+    #print(str(call_deepL_usage()) + " Characters remaining")
 
     id_source = input("Enter Source Pad Name:  ")
     while not id_source:
