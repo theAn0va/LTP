@@ -76,38 +76,38 @@ except AttributeError:
 logging.getLogger('deepl').setLevel(logging.WARNING)
 
 
-glossary_de_to_en = d.create_glossary(
-    "My glossary",
-    source_lang="DE",
-    target_lang="EN",
-    entries={
-    'Clubausweis':,
-    'Einlass':,
-    'Vorstand':,
-    'Fluten':,
-    'Öffnungen':,
-    'Mutti':,
-    'Mäuschen':,
-    'Ampel':'Ampel',
-    'Rückblick':,
-    'Dienstplan':,
-    'Geschäftliches':,
-    'Persönliches':,
-    'Personelles':,
-    'Werbe Team':,
-    'Uhu':'Uhu',
-    'Clubverbot':
-    'Karo':'Karo',
-    'Buschmann':'Buschmann'
+# glossary_de_to_en = d.create_glossary(
+#     "My glossary",
+#     source_lang="DE",
+#     target_lang="EN",
+#     entries={
+#     'Clubausweis':,
+#     'Einlass':,
+#     'Vorstand':,
+#     'Fluten':,
+#     'Öffnungen':,
+#     'Mutti':,
+#     'Mäuschen':,
+#     'Ampel':'Ampel',
+#     'Rückblick':,
+#     'Dienstplan':,
+#     'Geschäftliches':,
+#     'Persönliches':,
+#     'Personelles':,
+#     'Werbe Team':,
+#     'Uhu':'Uhu',
+#     'Clubverbot':
+#     'Karo':'Karo',
+#     'Buschmann':'Buschmann'
+
     
     
     
     
     
     
-    
-    },
-)
+#     },
+# )
 
 
 
